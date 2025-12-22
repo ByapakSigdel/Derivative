@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+      BACKDOOR_ID: ${BACKDOOR_ID:-admin}
+      BACKDOOR_PASSWORD: ${BACKDOOR_PASSWORD:-admin}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-secret}
+    # Uncomment to mount source for dev (requires dev-friendly Dockerfile)
+    # volumes:
+    #   - .:/app
