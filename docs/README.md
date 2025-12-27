@@ -13,3 +13,4 @@ Centralized documentation for the Arduino Visual Scripting app.
 - Uploader Pipeline: ./uploader.md
 - Docker: ./docker.md
 - CI/CD Notes: ./ci-cd.md
+- Changelog: ./changelog.md
