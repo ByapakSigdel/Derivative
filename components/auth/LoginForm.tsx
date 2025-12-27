@@ -36,14 +36,25 @@ export default function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-3">
       <label className="flex flex-col gap-1">
-        <span className="text-sm text-gray-600">ID</span>
-        <input value={id} onChange={(e) => setId(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2" required />
+        <span className="text-sm text-muted-foreground">ID</span>
+        <input 
+          value={id} 
+          onChange={(e) => setId(e.target.value)} 
+          className="rounded-md border border-input bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
+          required 
+        />
       </label>
       <label className="flex flex-col gap-1">
-        <span className="text-sm text-gray-600">Password</span>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2" required />
+        <span className="text-sm text-muted-foreground">Password</span>
+        <input 
+          type="password" 
+          value={password} 
+          onChange={(e) => setPassword(e.target.value)} 
+          className="rounded-md border border-input bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
+          required 
+        />
       </label>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <Button type="submit" disabled={loading}>{loading ? "Signing in..." : "Login"}</Button>
     </form>
   );

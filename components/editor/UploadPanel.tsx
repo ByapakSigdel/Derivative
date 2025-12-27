@@ -48,32 +48,32 @@ export default function UploadPanel() {
 
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Upload</h2>
+      <h2 className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Upload</h2>
       
       <input 
         value={port} 
         onChange={(e) => setPort(e.target.value)} 
-        placeholder="Port" 
-        className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[10px] text-slate-200 placeholder-slate-500" 
+        placeholder="Port (e.g. COM3)" 
+        className="rounded border border-input bg-background px-2 py-1 text-[10px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
       />
       
       <input 
         value={board} 
         onChange={(e) => setBoard(e.target.value)} 
-        placeholder="Board" 
-        className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[10px] text-slate-200 placeholder-slate-500" 
+        placeholder="Board (e.g. arduino:avr:uno)" 
+        className="rounded border border-input bg-background px-2 py-1 text-[10px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" 
       />
       
       <button 
         onClick={upload}
         disabled={uploading || !port}
-        className="mt-1 px-2 py-1.5 text-[10px] bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="mt-1 px-2 py-1.5 text-[10px] bg-primary hover:bg-primary/90 text-primary-foreground rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-sm"
       >
         {uploading ? "..." : "Upload"}
       </button>
       
       <div className="mt-0.5 text-[9px]">
-        <div className={`${status.includes("successful") ? "text-green-400" : status.includes("failed") || status.includes("error") ? "text-red-400" : "text-slate-400"}`}>
+        <div className={`${status.includes("successful") ? "text-green-500" : status.includes("failed") || status.includes("error") ? "text-destructive" : "text-muted-foreground"}`}>
           {status}
         </div>
       </div>

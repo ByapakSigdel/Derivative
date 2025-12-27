@@ -1,30 +1,37 @@
 "use client";
-import { useCallback, useMemo, useState, useEffect } from "react";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import ReactFlow, {
   Background,
-  Controls,
   MiniMap,
   BackgroundVariant,
   NodeTypes,
   ConnectionMode,
   Panel,
-  useReactFlow
+  useReactFlow,
+  OnConnectStartParams
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { useEditorStore } from "@/store/editorStore";
 import CustomNode from "./nodes/CustomNode";
 import StartNode from "./nodes/StartNode";
-import LoopNode from "./nodes/EndNode";
+import EndNode from "./nodes/EndNode";
 import ContextMenu from "./ContextMenu";
+
+import { useTheme } from "next-themes";
+import { Moon, Sun } from "lucide-react";
 
 // Define nodeTypes outside component to ensure stability
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
+  Start: StartNode,
+  End: EndNode,
+  // Legacy support
   start: StartNode,
-  loop: LoopNode
+  loop: EndNode
 };
 
 export default function NodeCanvas() {
+  const { theme, setTheme } = useTheme();
   const {
     nodes,
     edges,
@@ -40,9 +47,56 @@ export default function NodeCanvas() {
     x: number;
     y: number;
     position: { x: number; y: number };
+    source?: { nodeId: string; handleId: string | null; handleType: string } | null;
+  } | null>(null);
+
+  const [connectionStart, setConnectionStart] = useState<{
+    nodeId: string;
+    handleId: string | null;
+    handleType: "source" | "target";
   } | null>(null);
 
   const { screenToFlowPosition, fitView } = useReactFlow();
+
+  const onConnectStart = useCallback((_: React.MouseEvent | React.TouchEvent, { nodeId, handleId, handleType }: OnConnectStartParams) => {
+    if (nodeId && handleType) {
+      setConnectionStart({ nodeId, handleId, handleType });
+    }
+  }, []);
+
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent) => {
+      if (!connectionStart) return;
+      
+      const targetIsPane = (event.target as Element).classList.contains('react-flow__pane');
+      
+      if (targetIsPane) {
+        let clientX, clientY;
+        if ('clientX' in event) {
+            clientX = event.clientX;
+            clientY = event.clientY;
+        } else {
+            const touch = event.changedTouches[0];
+            clientX = touch.clientX;
+            clientY = touch.clientY;
+        }
+
+        const position = screenToFlowPosition({
+          x: clientX,
+          y: clientY,
+        });
+        
+        setContextMenu({
+          x: clientX,
+          y: clientY,
+          position,
+          source: connectionStart
+        });
+      }
+      setConnectionStart(null);
+    },
+    [connectionStart, screenToFlowPosition]
+  );
 
   // Initialize with Start and Loop nodes
   useEffect(() => {
@@ -150,13 +204,15 @@ export default function NodeCanvas() {
   ];
 
   return (
-    <div className="h-full w-full" style={{ height: '100%', width: '100%', minHeight: '500px' }}>
+    <div className="h-full w-full bg-background transition-colors duration-300" style={{ height: '100%', width: '100%', minHeight: '500px' }}>
       <ReactFlow
         nodes={nodes.length > 0 ? nodes : debugNodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         onDragOver={onDragOver}
         onDrop={onDrop}
         onPaneClick={onPaneClick}
@@ -174,62 +230,56 @@ export default function NodeCanvas() {
           minZoom: 0.5,
           maxZoom: 1.5
         }}
-        className="bg-slate-900"
+        className="bg-background transition-colors duration-300"
         defaultEdgeOptions={{
           type: "default",
           animated: false,
           style: { 
-            strokeWidth: 3, 
-            stroke: "#64748b",
+            strokeWidth: 2, 
+            stroke: theme === 'dark' ? "#52525b" : "#a1a1aa",
           }
         }}
         connectionLineStyle={{
-          strokeWidth: 3,
-          stroke: "#94a3b8"
+          strokeWidth: 2,
+          stroke: theme === 'dark' ? "#a1a1aa" : "#52525b"
         }}
         minZoom={0.2}
         maxZoom={4}
         deleteKeyCode="Delete"
+        proOptions={{ hideAttribution: true }}
       >
         <Background
           variant={BackgroundVariant.Dots}
-          gap={16}
+          gap={20}
           size={1}
-          color="#475569"
-        />
-        <Controls 
-          className="!bg-slate-800 !border !border-slate-700 !rounded"
-          showInteractive={false}
+          color={theme === 'dark' ? "#27272a" : "#e4e4e7"}
         />
         <MiniMap
-          className="!bg-slate-800 !border !border-slate-700 !rounded"
-          nodeColor={() => "#64748b"}
-          maskColor="rgba(15, 23, 42, 0.8)"
+          className="!bg-card !border !border-border !rounded-lg !shadow-md"
+          nodeColor={() => theme === 'dark' ? "#52525b" : "#a1a1aa"}
+          maskColor={theme === 'dark' ? "rgba(0, 0, 0, 0.6)" : "rgba(255, 255, 255, 0.6)"}
         />
-        <Panel position="top-right" className="flex gap-2">
-          <button
-            onClick={() => addNode("If", { x: 300, y: 300 })}
-            className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 text-white border border-blue-500 rounded transition-colors"
-          >
-            + Test Node
-          </button>
-          <button
-            onClick={clear}
-            className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white border border-red-500 rounded transition-colors"
-          >
-            Clear Canvas
-          </button>
-        </Panel>
         <Panel position="top-left">
-          <div className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-xs text-slate-300 max-w-xs">
-            <div className="font-semibold text-slate-200 mb-1">Quick Start</div>
-            <div className="text-[10px] text-slate-400 space-y-0.5">
-              <div><span className="text-slate-300">Right Click / Space</span> - Add nodes</div>
-              <div><span className="text-slate-300">Drag</span> - Move nodes</div>
-              <div><span className="text-slate-300">Delete</span> - Remove selected</div>
-              <div>Nodes: {nodes.length}</div>
+          <div className="bg-card/80 backdrop-blur-md border border-border rounded-lg px-4 py-3 text-xs text-muted-foreground max-w-xs shadow-sm">
+            <div className="font-semibold text-foreground mb-2 text-sm">Quick Start</div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-[10px]">Space</span> Add nodes</div>
+              <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-[10px]">Drag</span> Move nodes</div>
+              <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-[10px]">Del</span> Remove selected</div>
+              <div className="pt-1 border-t border-border mt-1">Nodes: <span className="text-foreground font-mono">{nodes.length}</span></div>
             </div>
           </div>
+        </Panel>
+        <Panel position="bottom-left" className="flex gap-1.5">
+          <button onClick={() => fitView({ duration: 800 })} className="p-2 bg-card hover:bg-accent text-foreground border border-border rounded-lg transition-colors shadow-sm" title="Fit View">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          </button>
+          <button onClick={() => useReactFlow().zoomIn()} className="p-2 bg-card hover:bg-accent text-foreground border border-border rounded-lg transition-colors shadow-sm" title="Zoom In">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          </button>
+          <button onClick={() => useReactFlow().zoomOut()} className="p-2 bg-card hover:bg-accent text-foreground border border-border rounded-lg transition-colors shadow-sm" title="Zoom Out">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          </button>
         </Panel>
       </ReactFlow>
 
@@ -238,6 +288,7 @@ export default function NodeCanvas() {
           x={contextMenu.x}
           y={contextMenu.y}
           position={contextMenu.position}
+          source={contextMenu.source}
           onClose={onContextMenuClose}
         />
       )}

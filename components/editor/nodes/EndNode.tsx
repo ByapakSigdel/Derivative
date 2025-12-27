@@ -1,44 +1,55 @@
 "use client";
 import { Handle, Position, NodeProps } from "reactflow";
 import { memo } from "react";
+import { CustomNodeData } from "./CustomNode";
+import { Square } from "lucide-react";
 
-const LoopNode = ({ selected }: NodeProps) => {
+const EndNode = ({ selected, data, isConnectable }: NodeProps<CustomNodeData>) => {
+  const isInvalid = data.status === "invalid";
+  const isWarning = data.status === "warning";
+  
+  let borderColor = "border-destructive/50";
+  if (isInvalid) borderColor = "border-destructive";
+  else if (isWarning) borderColor = "border-yellow-500/50";
+
   return (
     <div
       className={`
-        bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-2xl transition-all 
-        ${selected ? "ring-4 ring-orange-400 scale-105" : "hover:scale-105 hover:shadow-blue-500/30"}
-        min-w-[160px] border-2 border-blue-500
+        bg-card rounded-2xl shadow-md transition-all duration-300
+        ${selected ? "ring-2 ring-destructive shadow-xl scale-105" : "hover:shadow-lg hover:scale-105"}
+        min-w-[120px] relative overflow-hidden group
       `}
-      style={{ opacity: 1, visibility: 'visible' }}
     >
+      {/* Status Message */}
+      {data.status && data.status !== "valid" && (
+        <div className="absolute -top-8 left-0 right-0 bg-destructive text-destructive-foreground text-[10px] p-1 rounded border border-destructive/50 shadow-lg z-50 whitespace-normal text-center">
+          {data.statusMessage}
+        </div>
+      )}
+
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-5 !h-5 !bg-emerald-400 !border-2 !border-slate-900 !rounded-full hover:!scale-125 transition-transform"
-        style={{ top: -10 }}
+        isConnectable={isConnectable}
+        className="!w-3.5 !h-3.5 !bg-background !border-2 !border-destructive !rounded-full hover:!scale-125 transition-transform z-50 shadow-sm"
+        style={{ top: -7 }}
       />
-      <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] text-emerald-400 font-semibold pointer-events-none">
+      <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] text-muted-foreground font-medium pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
         IN
       </div>
       
-      <div className="px-5 py-4 text-center">
-        <div className="text-2xl mb-1">🔄</div>
-        <div className="text-white text-sm font-bold">LOOP</div>
-        <div className="text-blue-200 text-[10px] mt-1">runs forever</div>
+      <div className="bg-destructive px-5 py-3 flex items-center justify-center relative z-10 shadow-sm">
+        <div className="text-white font-bold tracking-wide text-sm flex items-center gap-2">
+          <Square size={16} fill="currentColor" />
+          END
+        </div>
       </div>
-      
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!w-5 !h-5 !bg-sky-400 !border-2 !border-slate-900 !rounded-full hover:!scale-125 transition-transform"
-        style={{ bottom: -10 }}
-      />
-      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] text-sky-400 font-semibold pointer-events-none">
-        OUT
+
+      <div className="px-5 py-4 flex flex-col items-center justify-center gap-1 relative z-10">
+        <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-wider">stops execution</div>
       </div>
     </div>
   );
 };
 
-export default LoopNode;
+export default memo(EndNode);

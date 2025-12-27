@@ -1,7 +1,7 @@
 "use client";
 import { create } from "zustand";
 import type { Graph, NodeType, Node as GraphNode, Edge as GraphEdge } from "@/types/graph";
-import type { Node, Edge, XYPosition } from "reactflow";
+import { type Node, type Edge, type XYPosition, addEdge, applyNodeChanges, applyEdgeChanges, type OnNodesChange, type OnEdgesChange } from "reactflow";
 import type { CustomNodeData } from "@/components/editor/nodes/CustomNode";
 
 let idCounter = 0;
@@ -14,13 +14,14 @@ type EditorState = {
   nodes: Node<CustomNodeData>[];
   edges: Edge[];
   graph: Graph;
-  addNode: (type: NodeType, position?: XYPosition) => void;
+  addNode: (type: NodeType, position?: XYPosition) => string;
   updateNodePosition: (id: string, position: XYPosition) => void;
   onNodesChange: (changes: any) => void;
   onEdgesChange: (changes: any) => void;
   onConnect: (connection: any) => void;
   deleteNode: (id: string) => void;
   deleteEdge: (id: string) => void;
+  setValidationStatus: (status: { nodes: { id: string; status: "valid" | "warning" | "invalid"; message?: string }[]; edges: { id: string; status: "valid" | "warning" | "invalid"; message?: string }[] }) => void;
   clear: () => void;
   initialize: () => void;
 };
@@ -28,17 +29,17 @@ type EditorState = {
 const getInitialNodes = (): Node<CustomNodeData>[] => [
   {
     id: "start-1",
-    type: "start",
+    type: "Start",
     position: { x: 400, y: 50 },
-    data: { label: "Setup", type: "start" },
+    data: { label: "Start", type: "Start" },
     draggable: true,
     selectable: true,
   },
   {
-    id: "loop-1",
-    type: "loop",
-    position: { x: 400, y: 250 },
-    data: { label: "Loop", type: "loop" },
+    id: "end-1",
+    type: "End",
+    position: { x: 400, y: 400 },
+    data: { label: "End", type: "End" },
     draggable: true,
     selectable: true,
   },
@@ -52,7 +53,7 @@ const initial: Pick<EditorState, "nodes" | "edges"> = {
 // Helper to convert ReactFlow nodes to graph nodes
 const toGraphNodes = (nodes: Node<CustomNodeData>[]): GraphNode[] => {
   return nodes
-    .filter(n => n.data.type !== "start" && n.data.type !== "loop")
+    .filter(n => !["start", "loop", "Start", "End"].includes(n.data.type))
     .map(n => {
       const params = n.data.params || [];
       const getParam = (name: string) => params.find(p => p.name === name)?.value;
@@ -80,9 +81,10 @@ const toGraphNodes = (nodes: Node<CustomNodeData>[]): GraphNode[] => {
             payload: { ms: Number(getParam("Time (ms)")) || 1000 }
           };
         case "If":
+        case "IfCondition":
           return {
             id: n.id,
-            type: "If" as const,
+            type: "IfCondition" as const,
             payload: { condition: String(getParam("Condition")) || "true" }
           };
         case "Loop":
@@ -91,7 +93,32 @@ const toGraphNodes = (nodes: Node<CustomNodeData>[]): GraphNode[] => {
             type: "Loop" as const,
             payload: { iterations: Number(getParam("Times")) || 10 }
           };
+        case "Variable":
+          return {
+            id: n.id,
+            type: "Variable" as const,
+            payload: { name: getParam("Name"), initial: getParam("Initial") }
+          };
+        case "VariableSet":
+          return {
+            id: n.id,
+            type: "VariableSet" as const,
+            payload: { name: getParam("Name"), value: getParam("Value") }
+          };
+        case "MathOperation":
+          return {
+            id: n.id,
+            type: "MathOperation" as const,
+            payload: { target: getParam("Target"), left: getParam("Left"), op: getParam("Op"), right: getParam("Right") }
+          };
+        case "PinConfig":
+          return {
+            id: n.id,
+            type: "PinConfig" as const,
+            payload: { pin: getParam("Pin"), mode: getParam("Mode") }
+          };
         default:
+          // Fallback for unknown nodes to avoid type errors, but ideally we should handle all
           return {
             id: n.id,
             type: "Delay" as const,
@@ -109,6 +136,10 @@ const toGraphEdges = (edges: Edge[]): GraphEdge[] => {
   }));
 };
 
+import { createDefaultRegistry } from "@/lib/engine/nodeRegistry";
+
+const registry = createDefaultRegistry();
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   ...initial,
   get graph() {
@@ -124,62 +155,43 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const id = nextId();
     let nodeData: CustomNodeData;
     
-    switch (type) {
-      case "DigitalWrite":
-        nodeData = {
-          label: "Turn LED On/Off",
-          type: "DigitalWrite",
-          params: [
-            { name: "Pin", value: 13 },
-            { name: "State", value: "HIGH" }
-          ]
-        };
-        break;
-      case "AnalogRead":
-        nodeData = {
-          label: "Read Sensor",
-          type: "AnalogRead",
-          inputs: 0,
-          params: [
-            { name: "Pin", value: "A0" }
-          ]
-        };
-        break;
-      case "Delay":
-        nodeData = {
-          label: "Wait",
-          type: "Delay",
-          params: [
-            { name: "Time (ms)", value: 1000 }
-          ]
-        };
-        break;
-      case "If":
-        nodeData = {
-          label: "If Condition",
-          type: "If",
-          outputs: 2,
-          params: [
-            { name: "Condition", value: "value > 500" }
-          ]
-        };
-        break;
-      case "Loop":
-        nodeData = {
-          label: "Repeat Loop",
-          type: "Loop",
-          outputs: 1,
-          params: [
-            { name: "Times", value: 10 }
-          ]
-        };
-        break;
-      default:
-        nodeData = {
-          label: "Unknown",
-          type: "Delay",
-          params: []
-        };
+    const def = registry.get(type);
+    if (def) {
+      // Map registry config to params for UI
+      const params = Object.entries(def.defaultConfig)
+        .filter(([key]) => key !== "kind")
+        .map(([key, value]) => ({ name: key.charAt(0).toUpperCase() + key.slice(1), value }));
+
+      nodeData = {
+        label: def.title,
+        type: def.type,
+        inputs: def.io.inputs,
+        outputs: def.io.outputs,
+        outputLabels: def.outputLabels,
+        params,
+        isValueNode: def.isValueNode
+      };
+    } else {
+      // Fallback for legacy or unknown types
+      switch (type) {
+        case "DigitalWrite":
+          nodeData = {
+            label: "Turn LED On/Off",
+            type: "DigitalWrite",
+            params: [
+              { name: "Pin", value: 13 },
+              { name: "State", value: "HIGH" }
+            ]
+          };
+          break;
+        // ... other legacy cases if needed, but registry should cover them
+        default:
+          nodeData = {
+            label: "Unknown",
+            type: "Delay",
+            params: []
+          };
+      }
     }
     
     const newNode: Node<CustomNodeData> = {
@@ -197,6 +209,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       console.log('Updated nodes array length:', updatedNodes.length);
       return { nodes: updatedNodes };
     });
+    return id;
   },
 
   updateNodePosition(id, position) {
@@ -207,60 +220,30 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
-  onNodesChange(changes) {
-    set((state) => {
-      let newNodes = [...state.nodes];
-      
-      changes.forEach((change: any) => {
-        if (change.type === "position" && change.position) {
-          newNodes = newNodes.map(n =>
-            n.id === change.id ? { ...n, position: change.position } : n
-          );
-        } else if (change.type === "remove") {
-          newNodes = newNodes.filter(n => n.id !== change.id);
-        } else if (change.type === "select") {
-          newNodes = newNodes.map(n =>
-            n.id === change.id ? { ...n, selected: change.selected } : n
-          );
-        }
-      });
-      
-      return { nodes: newNodes };
-    });
+  onNodesChange: (changes) => {
+    set((state) => ({
+      nodes: applyNodeChanges(changes, state.nodes)
+    }));
   },
 
-  onEdgesChange(changes) {
-    set((state) => {
-      let newEdges = [...state.edges];
-      
-      changes.forEach((change: any) => {
-        if (change.type === "remove") {
-          newEdges = newEdges.filter(e => e.id !== change.id);
-        } else if (change.type === "select") {
-          newEdges = newEdges.map(e =>
-            e.id === change.id ? { ...e, selected: change.selected } : e
-          );
-        }
-      });
-      
-      return { edges: newEdges };
-    });
+  onEdgesChange: (changes) => {
+    set((state) => ({
+      edges: applyEdgeChanges(changes, state.edges)
+    }));
   },
 
   onConnect(connection) {
-    const edge: Edge = {
-      id: `e${connection.source}-${connection.target}`,
-      source: connection.source,
-      target: connection.target,
-      type: "default",
-      animated: false,
-      style: { 
-        stroke: "#64748b", 
-        strokeWidth: 3 
-      }
-    };
-    
-    set((state) => ({ edges: [...state.edges, edge] }));
+    console.log('onConnect triggered:', connection);
+    set((state) => {
+      const newEdges = addEdge({ 
+        ...connection, 
+        type: "default", 
+        animated: false, 
+        style: { stroke: "#64748b", strokeWidth: 3 } 
+      }, state.edges);
+      console.log('New edges:', newEdges);
+      return { edges: newEdges };
+    });
   },
 
   deleteNode(id) {
@@ -274,6 +257,30 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((state) => ({
       edges: state.edges.filter(e => e.id !== id)
     }));
+  },
+
+  setValidationStatus(status) {
+    set((state) => {
+      const nodeStatusMap = new Map(status.nodes.map(s => [s.id, s]));
+      const edgeStatusMap = new Map(status.edges.map(s => [s.id, s]));
+
+      return {
+        nodes: state.nodes.map(n => {
+          const s = nodeStatusMap.get(n.id);
+          return s ? { ...n, data: { ...n.data, status: s.status, statusMessage: s.message } } : { ...n, data: { ...n.data, status: undefined, statusMessage: undefined } };
+        }),
+        edges: state.edges.map(e => {
+          const s = edgeStatusMap.get(e.id);
+          // React Flow edges support style and label, but for custom styling we might need a custom edge type or just update style.
+          // Let's update style for now.
+          let style = { stroke: "#64748b", strokeWidth: 3 };
+          if (s?.status === "invalid") style = { stroke: "#ef4444", strokeWidth: 3 };
+          else if (s?.status === "warning") style = { stroke: "#eab308", strokeWidth: 3 };
+          
+          return { ...e, style };
+        })
+      };
+    });
   },
 
   clear() {
