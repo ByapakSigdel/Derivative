@@ -10,14 +10,14 @@ type ButtonProps = {
 };
 
 export default function Button({ children, type = "button", onClick, disabled, variant = "primary", className }: ButtonProps) {
-  const base = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors px-4 py-2";
+  const base = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors px-4 py-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
   const variants: Record<string, string> = {
-    primary: "bg-black text-white hover:bg-gray-800",
-    secondary: "border border-gray-300 hover:bg-gray-100",
-    ghost: "hover:bg-gray-100",
+    primary: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
+    secondary: "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
+    ghost: "hover:bg-accent hover:text-accent-foreground",
   };
   return (
-    <button type={type} onClick={onClick} disabled={disabled} className={[base, variants[variant], disabled ? "opacity-50" : "", className ?? ""].join(" ")}>
+    <button type={type} onClick={onClick} disabled={disabled} className={[base, variants[variant], className ?? ""].join(" ")}>
       {children}
     </button>
   );

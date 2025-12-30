@@ -23,7 +23,7 @@ export default function UploadPanel() {
     setIsSerialSupported(supported);
     
     if (!supported) {
-      setStatus("⚠️ Web Serial API not supported. Use Chrome/Edge 89+ or Opera 75+");
+      setStatus("Web Serial API not supported. Use Chrome/Edge 89+ or Opera 75+");
     } else {
       setStatus("Ready - Connect your Arduino and click Upload");
       // Try to detect previously connected boards
@@ -38,12 +38,12 @@ export default function UploadPanel() {
 
   const handleUpload = async () => {
     if (!isSerialSupported) {
-      setStatus("❌ Web Serial API not supported in this browser");
+      setStatus("Web Serial API not supported in this browser");
       return;
     }
 
     if (!code.trim()) {
-      setStatus("❌ No code to upload. Paste Arduino code or generate from nodes.");
+      setStatus("No code to upload. Paste Arduino code or generate from nodes.");
       return;
     }
 
@@ -61,14 +61,14 @@ export default function UploadPanel() {
       );
 
       if (result.ok) {
-        setStatus("✅ " + (result.message || "Upload successful!"));
+        setStatus("Success: " + (result.message || "Upload successful!"));
         setProgress(100);
       } else {
-        setStatus("❌ " + (result.message || "Upload failed"));
+        setStatus("Error: " + (result.message || "Upload failed"));
         setProgress(0);
       }
     } catch (err) {
-      setStatus("❌ Error: " + (err as Error).message);
+      setStatus("Error: " + (err as Error).message);
       setProgress(0);
     } finally {
       setIsUploading(false);
@@ -77,16 +77,16 @@ export default function UploadPanel() {
 
   const handleTestConnection = async () => {
     if (!isSerialSupported) {
-      setStatus("❌ Web Serial API not supported in this browser");
+      setStatus("Web Serial API not supported in this browser");
       return;
     }
 
     setStatus("Testing connection...");
     try {
       const result = await testSerialConnection(board);
-      setStatus(result.ok ? "✅ " + result.message : "❌ " + result.message);
+      setStatus(result.ok ? "Success: " + result.message : "Error: " + result.message);
     } catch (err) {
-      setStatus("❌ Test failed: " + (err as Error).message);
+      setStatus("Test failed: " + (err as Error).message);
     }
   };
 
@@ -97,9 +97,9 @@ export default function UploadPanel() {
     if (boards.length > 0) {
       setDetectedBoards(boards);
       setBoard(boards[0]);
-      setStatus(`✅ Found ${boards.length} board(s): ${boards.join(", ")}`);
+      setStatus(`Found ${boards.length} board(s): ${boards.join(", ")}`);
     } else {
-      setStatus("⚠️ No previously connected boards found. Click Upload to select a port.");
+      setStatus("No previously connected boards found. Click Upload to select a port.");
     }
   };
 
@@ -110,7 +110,7 @@ export default function UploadPanel() {
       {/* Browser Support Warning */}
       {!isSerialSupported && (
         <div className="p-3 bg-yellow-50 border border-yellow-300 rounded text-sm text-yellow-800">
-          <strong>⚠️ Browser Not Supported</strong>
+          <strong>Browser Not Supported</strong>
           <p>Web Serial API requires Chrome 89+, Edge 89+, or Opera 75+</p>
         </div>
       )}
@@ -131,7 +131,7 @@ export default function UploadPanel() {
         </select>
         {detectedBoards.length > 0 && (
           <p className="text-xs text-green-600">
-            ✓ Detected: {detectedBoards.join(", ")}
+            Detected: {detectedBoards.join(", ")}
           </p>
         )}
       </div>

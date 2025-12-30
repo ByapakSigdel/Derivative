@@ -7,7 +7,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     redirect("/login");
   }
   return (
-    <section className="min-h-screen bg-gray-50">
+    <section className="min-h-screen bg-background">
       {children}
     </section>
   );
